@@ -69,6 +69,7 @@ def _empty_team_stats() -> Dict[str, float]:
         "home_losses": 0,
         "away_losses": 0,
         "fgm": 0,
+        "fgm3": 0,
         "fga": 0,
         "ftm": 0,
         "fta": 0,
@@ -117,6 +118,7 @@ def compute_team_stats(reg_df: pd.DataFrame, det_df: pd.DataFrame,
                 continue
 
             stats[team_id]["fgm"] = wins["WFGM"].sum() + losses["LFGM"].sum()
+            stats[team_id]["fgm3"] = wins["WFGM3"].sum() + losses["LFGM3"].sum()
             stats[team_id]["fga"] = wins["WFGA"].sum() + losses["LFGA"].sum()
             stats[team_id]["ftm"] = wins["WFTM"].sum() + losses["LFTM"].sum()
             stats[team_id]["fta"] = wins["WFTA"].sum() + losses["LFTA"].sum()
@@ -135,7 +137,7 @@ def compute_team_stats(reg_df: pd.DataFrame, det_df: pd.DataFrame,
     stats_df["away_win_pct"] = stats_df["away_wins"] / (
         stats_df["away_wins"] + stats_df["away_losses"]
     ).replace(0, 1)
-    stats_df["efg_pct"] = stats_df["fgm"] / stats_df["fga"].replace(0, 1)
+    stats_df["efg_pct"] = (stats_df["fgm"] + 0.5 * stats_df["fgm3"]) / stats_df["fga"].replace(0, 1)
     stats_df["ftp_pct"] = stats_df["ftm"] / stats_df["fta"].replace(0, 1)
     stats_df["sos"] = _compute_strength_of_schedule(season_games, stats_df)
     return stats_df

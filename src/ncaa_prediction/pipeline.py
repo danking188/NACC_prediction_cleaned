@@ -10,6 +10,10 @@ from .models import evaluate_model, train_ensemble
 
 def run_stage2_pipeline(config: PipelineConfig) -> Dict:
     data = load_ncaa_data(config.data_dir)
+    if set(data.sample_stage2["Season"]) != {config.prediction_season}:
+        raise ValueError("Sample submission seasons must match prediction_season")
+    # Reject invalid cross-gender/unknown pairs before expensive model fitting.
+    _split_pairs_by_gender(data.sample_stage2, set(data.men.teams["TeamID"]), set(data.women.teams["TeamID"]))
 
     print("Computing ELO ratings...")
     men_elo = compute_elo_conservative(
@@ -39,6 +43,8 @@ def run_stage2_pipeline(config: PipelineConfig) -> Dict:
 
     train_df = pd.concat([men_train, women_train], ignore_index=True)
     val_df = pd.concat([men_val, women_val], ignore_index=True)
+    if val_df.empty:
+        raise ValueError("No tournament validation games found for the selected seasons")
     print(f"Training games: {len(train_df)}, validation games: {len(val_df)}")
 
     print("Training ensemble model...")
@@ -121,9 +127,9 @@ def _split_pairs_by_gender(sample: pd.DataFrame, men_ids: set, women_ids: set) -
     women_pairs = []
     for row in sample.itertuples(index=False):
         pair = (row.TeamA, row.TeamB)
-        if row.TeamA in men_ids or row.TeamB in men_ids:
+        if row.TeamA in men_ids and row.TeamB in men_ids:
             men_pairs.append(pair)
-        elif row.TeamA in women_ids or row.TeamB in women_ids:
+        elif row.TeamA in women_ids and row.TeamB in women_ids:
             women_pairs.append(pair)
         else:
             raise ValueError(f"Cannot infer gender for matchup: {row.ID}")
