@@ -29,6 +29,11 @@ class EnsembleModel:
 
 def train_ensemble(train_df: pd.DataFrame, clip_min: float = 0.001,
                    clip_max: float = 0.999, random_state: int = 42) -> EnsembleModel:
+    if train_df.empty or "Result" not in train_df:
+        raise ValueError("No tournament training games found for the selected seasons")
+    counts = train_df["Result"].value_counts()
+    if set(counts.index) != {0, 1} or counts.min() < 5:
+        raise ValueError("Five-fold calibration requires at least five games for each binary outcome")
     x_train = train_df[FEATURE_COLUMNS].fillna(0)
     y_train = train_df["Result"]
 
@@ -37,7 +42,6 @@ def train_ensemble(train_df: pd.DataFrame, clip_min: float = 0.001,
             ("scaler", StandardScaler()),
             ("classifier", LogisticRegression(
                 C=0.1,
-                penalty="l2",
                 solver="liblinear",
                 max_iter=2000,
                 random_state=random_state,
@@ -63,11 +67,13 @@ def train_ensemble(train_df: pd.DataFrame, clip_min: float = 0.001,
 
 
 def evaluate_model(model: EnsembleModel, val_df: pd.DataFrame) -> Dict[str, float]:
+    if val_df.empty:
+        raise ValueError("No tournament validation games found for the selected seasons")
     y_val = val_df["Result"]
     pred = model.predict_proba(val_df)
     labels = (pred >= 0.5).astype(int)
     return {
-        "log_loss": float(log_loss(y_val, pred)),
+        "log_loss": float(log_loss(y_val, pred, labels=[0, 1])),
         "brier": float(brier_score_loss(y_val, pred)),
         "accuracy": float(accuracy_score(y_val, labels)),
     }
